@@ -29,7 +29,6 @@ def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
         rem_cols=[]
     else:
         assert len(sub_on)==on, "sub_on should have same length as on"
-    else:
         rem_cols = [c+'_y' for c in sub_on if not c in on]
     if len(keepCols)==0:
         subcols = sub_on
