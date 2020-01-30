@@ -56,8 +56,8 @@ def setSelectionEdges(dfSelection, left=True):
         inplace modification of dfSelection
 
     """
-    colName = left ? "LeftEdge" : "RightEdge"
-    fun = left ? getNextFrame : getPreviousFrame
+    colName = "LeftEdge" if left else "RightEdge"
+    fun = getNextFrame if left else getPreviousFrame
     dfNeigh = pd.DataFrame({"SelectionName":dfSelection.SelectionName, "Position":dfSelection.Position, "Indices":dfSelection.Indices.apply(fun)})
     leftEdges = pd.concat([dfSelection[["SelectionName", "Position", "Indices"]], dfNeigh, dfNeigh]).drop_duplicates(keep=False)
     dfSelection[colName] = False
