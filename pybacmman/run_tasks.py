@@ -47,7 +47,8 @@ def runBacmmanTask(bacmmanFolder, taskFile, logFile=None, progressCallback=None,
     dep_folder = join(bacmmanFolder, "dependency")
     if not os.path.isdir(dep_folder):
         raise ValueError("dependency folder not found in dir:", bacmmanFolder)
-
+    if not os.path.isfile(taskFile):
+        raise ValueError("task file {} not found".format(taskFile))
     if os.name == 'nt': # windows
         cmd = "java -cp {}\*;{} bacmman.ui.ProcessTasks {}{}".format(dep_folder, bheadlessjar[0], taskFile, " "+logFile if logFile else "")
     else:
