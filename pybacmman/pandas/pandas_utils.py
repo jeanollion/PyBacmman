@@ -1,6 +1,6 @@
 import pandas as pd
 from pandas import merge
-from .indices_utils import getNextFrame, getPreviousFrame
+from .indices_utils import getNext, getPrevious
 
 def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
     """Return rows of dataframe df that are present in dfSubset
@@ -57,7 +57,7 @@ def setSelectionEdges(dfSelection, left=True):
 
     """
     colName = "LeftEdge" if left else "RightEdge"
-    fun = getNextFrame if left else getPreviousFrame
+    fun = getNext if left else getPrevious
     dfNeigh = pd.DataFrame({"SelectionName":dfSelection.SelectionName, "Position":dfSelection.Position, "Indices":dfSelection.Indices.apply(fun)})
     leftEdges = pd.concat([dfSelection[["SelectionName", "Position", "Indices"]], dfNeigh, dfNeigh]).drop_duplicates(keep=False)
     dfSelection[colName] = False
