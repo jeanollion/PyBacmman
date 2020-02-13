@@ -40,6 +40,50 @@ def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
         res.drop(rem_cols, 1, inplace=True)
     return res
 
+def mapColumns(df, df2, columns, on, on2=None):
+    """Return rows of dataframe df that are present in dfSubset
+
+    Parameters
+    ----------
+    df : DataFrame
+        DataFrame to subset
+    df2 : DataFrame
+        DataFrame used to define the subset
+    columns : String or list of Strings
+        column(s) of df2 to be returned
+    on : list of Strings
+        Column names to map df and df2. These must be found in both DataFrames if sub2 is None.
+    sub2 : list of Strings
+        Column names in the df2 DataFrame to be mapped to on columns in df.
+
+
+    Returns
+    -------
+    DataFrame
+        subset of df
+
+    """
+    if on2 is None:
+        on2=on
+    else:
+        assert len(on2)==len(on), "sub2 should have same length as on"
+    if not isinstance(columns, list):
+        columns = [columns]
+    if not isinstance(on2, list):
+        on2 = [on2]
+    if not isinstance(on, list):
+        on [on]
+    subcols = on2 + columns
+    df2 = df2[subcols].drop_duplicates()
+    res = pd.merge(df[on], df2, how='inner', left_on=on, right_on=on2)
+    def set_index(s):
+        s.index=df.index
+        return s
+    if len(columns)==1:
+        return set_index(res.loc[:,columns[0]])
+    else:
+        return [set_index(res.loc[:,c]) for c in columns]
+
 def setSelectionEdges(dfSelection, left=True):
     """Create a boolean column that defines the edge of the selection (in terms of Frames). If left=True: value is True when there is no previous object. If left = false, value is True when there is no next object
 
