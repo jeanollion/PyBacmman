@@ -76,13 +76,11 @@ def mapColumns(df, df2, columns, on, on2=None):
     subcols = on2 + columns
     df2 = df2[subcols].drop_duplicates()
     res = pd.merge(df[on], df2, how='inner', left_on=on, right_on=on2)
-    def set_index(s):
-        s.index=df.index
-        return s
+    res.index = df.index
     if len(columns)==1:
-        return set_index(res.loc[:,columns[0]])
+        return res.loc[:,columns[0]]
     else:
-        return [set_index(res.loc[:,c]) for c in columns]
+        return [res.loc[:,c] for c in columns]
 
 def setSelectionEdges(dfSelection, left=True):
     """Create a boolean column that defines the edge of the selection (in terms of Frames). If left=True: value is True when there is no previous object. If left = false, value is True when there is no next object
