@@ -75,7 +75,7 @@ def mapColumns(df, df2, columns, on, on2=None):
         on [on]
     subcols = on2 + columns
     df2 = df2[subcols].drop_duplicates()
-    res = pd.merge(df[on], df2, how='inner', left_on=on, right_on=on2)
+    res = pd.merge(df[on], df2, how='left', left_on=on, right_on=on2)
     res.index = df.index
     if len(columns)==1:
         return res.loc[:,columns[0]]
