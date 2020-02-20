@@ -104,3 +104,45 @@ def setSelectionEdges(dfSelection, left=True):
     leftEdges = pd.concat([dfSelection[["SelectionName", "Position", "Indices"]], dfNeigh, dfNeigh]).drop_duplicates(keep=False)
     dfSelection[colName] = False
     dfSelection.loc[leftEdges.index, colName] = True
+
+def groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(12,4)):
+    """Short summary.
+
+    Parameters
+    ----------
+    groupedData : grouped dataframe
+        Description of parameter `groupedData`.
+    plotFun : function
+        inputs : group and pyplot axe and plot graph on the axe
+    xlabel : type
+        Description of parameter `xlabel`.
+    ylabel : type
+        Description of parameter `ylabel`.
+    ncols : type
+        Description of parameter `ncols`.
+    figsize : type
+        Description of parameter `figsize`.
+
+    Returns
+    -------
+    groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4,
+        Description of returned object.
+
+    """
+    ncols=min(ncols, grouped.ngroups)
+    nrows = int(np.ceil(grouped.ngroups/ncols))
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
+    if ncols>1 or nrows>1:
+        axflat =  axes.flatten()
+    else:
+        axflat = [axes]
+    for (key, ax) in zip(grouped.groups.keys(),axflat):
+        data = grouped.get_group(key)
+        plotfun(data, ax)
+        ax.set_title(key)
+    ax.legend()
+    if xlabel:
+        fig.text(0.5, 0.02, xlabel, ha='center')
+    if ylabel:
+        fig.text(0.08, 0.5, ylabel, va='center', rotation='vertical')
+    return fig, axes
