@@ -129,15 +129,15 @@ def groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(
         Description of returned object.
 
     """
-    ncols=min(ncols, grouped.ngroups)
-    nrows = int(np.ceil(grouped.ngroups/ncols))
+    ncols=min(ncols, groupedData.ngroups)
+    nrows = int(np.ceil(groupedData.ngroups/ncols))
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
     if ncols>1 or nrows>1:
         axflat =  axes.flatten()
     else:
         axflat = [axes]
-    for (key, ax) in zip(grouped.groups.keys(),axflat):
-        data = grouped.get_group(key)
+    for (key, ax) in zip(groupedData.groups.keys(),axflat):
+        data = groupedData.get_group(key)
         plotfun(data, ax)
         ax.set_title(key)
     ax.legend()
