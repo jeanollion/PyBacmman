@@ -130,7 +130,7 @@ def groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(
 
     """
     ncols=min(ncols, groupedData.ngroups)
-    nrows = int(np.ceil(groupedData.ngroups/ncols))
+    nrows = int(ceil(groupedData.ngroups/ncols))
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
     if ncols>1 or nrows>1:
         axflat =  axes.flatten()
