@@ -2,6 +2,7 @@ import pandas as pd
 from pandas import merge
 from .indices_utils import getNext, getPrevious
 import math
+import matplotlib.pyplot as plt
 
 def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
     """Return rows of dataframe df that are present in dfSubset
