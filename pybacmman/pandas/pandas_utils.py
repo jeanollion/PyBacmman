@@ -1,6 +1,7 @@
 import pandas as pd
 from pandas import merge
 from .indices_utils import getNext, getPrevious
+import math
 
 def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
     """Return rows of dataframe df that are present in dfSubset
@@ -130,7 +131,7 @@ def groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(
 
     """
     ncols=min(ncols, groupedData.ngroups)
-    nrows = int(ceil(groupedData.ngroups/ncols))
+    nrows = int(math.ceil(groupedData.ngroups/ncols))
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, sharex=True, sharey=True)
     if ncols>1 or nrows>1:
         axflat =  axes.flatten()
