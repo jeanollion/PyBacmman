@@ -140,7 +140,7 @@ def groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(
         axflat = [axes]
     for (key, ax) in zip(groupedData.groups.keys(),axflat):
         data = groupedData.get_group(key)
-        plotfun(data, ax)
+        plotFun(data, ax)
         ax.set_title(key)
     ax.legend()
     if xlabel:
