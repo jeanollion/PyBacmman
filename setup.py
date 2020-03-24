@@ -9,7 +9,7 @@ setuptools.setup(
     author="Jean Ollion",
     author_email="jean.ollion@polytechnique.org",
     description="Utilities for analysis of data generated from bacmman software",
-    long_description="",
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/jeanollion/PyBacmman",
     packages=setuptools.find_packages(),
