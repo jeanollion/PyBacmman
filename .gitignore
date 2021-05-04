@@ -3,3 +3,6 @@
 test.py
 testCurrent.py
 *.ipynb
+dist/*
+build/*
+PyBacmman.egg-info/*

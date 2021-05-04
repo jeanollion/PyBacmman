@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="pybacmman",
+    name="PyBacmman",
     version="0.1",
     author="Jean Ollion",
     author_email="jean.ollion@polytechnique.org",
