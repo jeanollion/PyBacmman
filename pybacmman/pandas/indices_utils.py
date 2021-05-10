@@ -1,5 +1,10 @@
 # bacmman indices (barcode) manipulation
-getParent = lambda indices : '-'.join(indices.split('-')[:-1])
+def getParent(indices):
+    split = indices.split('-')[:-1]
+    if len(split)==1:
+        return int(split[0])
+    else:
+        return '-'.join(split)
 getFrame = lambda indices : int(indices.split('-')[0])
 def getPrevious(currentIndices):
     spl = currentIndices.split('-')
