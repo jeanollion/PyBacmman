@@ -2,12 +2,36 @@ from py4j.java_gateway import JavaGateway # requires py4j
 from py4j.java_collections import ListConverter
 from py4j.protocol import Py4JNetworkError
 
-def saveAndOpenSelection(df, dsName, objectClassIdx, selectionName, showObjects=False, showTracks=False, open=False, openWholeObjectClassIdx=False, objectClassIdxDisplay=-1, interactiveObjectClassIdx=-1):
-    gateway = JavaGateway()
-    java = gateway.entry_point
+    """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        each line of the DataFrame is one element of the selection, defined by columns Indices & Position
+    dsName : string
+        bacmman dataset name to store the selection to.
+    objectClassIdx : int
+        index of the object class of the elements of the selection in the bacmman dataset
+    selectionName : string
+        name of the selection
+    showObjects : bool
+        whether contours of objects should be shown
+    showTracks : bool
+        whether track links of objects should be shown
+    openSelection : bool
+        whether the first kymograph of the selection should be open
+    objectClassIdxDisplay : int
+        if openSelection is true, object class idx of the opened kymograph
+    interactiveObjectClassIdx : int
+        if openSelection is true, interactive object class idx
+    python_proxy_port : int
+        python port of the java gateway
+    """
+def saveAndOpenSelection(df, dsName:string, objectClassIdx:int, selectionName:string, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, python_proxy_port:int=25334):
+    gateway = JavaGateway(python_proxy_port=python_proxy_port)
     try:
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
         pos = ListConverter().convert(df.Position.tolist(), gateway._gateway_client)
-        gateway.saveCurrentSelection(dsName, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, open, openWholeObjectClassIdx, objectClassIdxDisplay, interactiveObjectClassIdx)
+        gateway.saveCurrentSelection(dsName, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
     except Py4JNetworkError:
         print("Could not connect, is BACMMAN started?")
