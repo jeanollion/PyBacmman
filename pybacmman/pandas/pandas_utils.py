@@ -4,7 +4,7 @@ from .indices_utils import getNext, getPrevious
 import math
 import matplotlib.pyplot as plt
 
-def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
+def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = [], remove:bool=False):
     """Return rows of dataframe df that are present in dfSubset
 
     Parameters
@@ -19,7 +19,9 @@ def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
         Column names to join on in the dfSubset DataFrame.
     keepCols : list of Strings
         columns of dfSubset that should be kept in resulting DataFrame
-
+    remove : boolean
+        if true, rows of df matching with dfSubset will be removed.
+        if false, only rows of df matching with a row of dfSubset will be kept
     Returns
     -------
     DataFrame
@@ -37,7 +39,12 @@ def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = []):
     else:
         subcols = sub_on + keepCols
     dfSubset = dfSubset[subcols].drop_duplicates()
-    res = merge(df, dfSubset, how='inner', left_on=on, right_on=sub_on, suffixes=('', '_y'))
+    if not remove:
+        res = merge(df, dfSubset, how='inner', left_on=on, right_on=sub_on, suffixes=('', '_y'))
+    else:
+        res = merge(df, dfSubset, how='left', left_on=on, right_on=sub_on, suffixes=('', '_y'), indicator=True)
+        res = res.query('_merge != "both"')
+        rem_cols.append("_merge")
     if len(rem_cols)>0:
         res.drop(rem_cols, 1, inplace=True)
     return res
