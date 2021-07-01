@@ -4,16 +4,16 @@ import os
 from os import listdir
 from os.path import isfile, join
 
-def runBacmmanTask(bacmmanFolder, taskFile, logFile=None, progressCallback=None, verbose=1):
+def runBacmmanTask(bacmmanFolder:str, taskFile:str, logFile:str=None, progressCallback=None, verbose=1):
     """Helper method to execute a bacmman task command, display its progress and log messages
 
     Parameters
     ----------
-    bacmmanFolder : String
+    bacmmanFolder : str
         directory containing of bacmman-headless-<VERSION>.jar and dependencies. e.g. compile bacmman with the command: mvn clean dependency:copy-dependencies package -DskipTests
-    taskFile : String
+    taskFile : str
         path of the .json task file to execute
-    logFile : String
+    logFile : str
         None or path of a file where all log messages will be append
     progressCallback : executable
         callback to display progress of the task. Called with the progress as an int in range [0,100]. use getJNBProgressBar for jupyter notebooks
@@ -56,12 +56,12 @@ def runBacmmanTask(bacmmanFolder, taskFile, logFile=None, progressCallback=None,
     print("Command : ", cmd)
     return runCommand(cmd, progressCallback, verbose)
 
-def runCommand(cmd, progressCallback=None, verbose = 1):
+def runCommand(cmd:str, progressCallback=None, verbose = 1):
     """Helper method to execute a (bacmman task) command, display its progress and log messages
 
     Parameters
     ----------
-    cmd : string
+    cmd : str
         shell command
     progressCallback : executable
         callback to display progress of the task. Called with the progress as an int in range [0,100]. use getJNBProgressBar for jupyter notebooks
