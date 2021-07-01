@@ -2,6 +2,7 @@ from py4j.java_gateway import JavaGateway, GatewayParameters # requires py4j
 from py4j.java_collections import ListConverter
 from py4j.protocol import Py4JNetworkError
 
+def saveAndOpenSelection(df, dsName:string, objectClassIdx:int, selectionName:string, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}):
     """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
 
     Parameters
@@ -27,7 +28,6 @@ from py4j.protocol import Py4JNetworkError
     python_proxy_port : int
         python port of the java gateway
     """
-def saveAndOpenSelection(df, dsName:string, objectClassIdx:int, selectionName:string, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}):
     gateway = JavaGateway(python_proxy_port=python_proxy_port, gateway_parameters=GatewayParameters(address=address, port=port, **gateway_parameters))
     try:
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
