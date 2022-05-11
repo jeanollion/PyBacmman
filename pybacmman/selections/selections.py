@@ -2,7 +2,7 @@ from py4j.java_gateway import JavaGateway, GatewayParameters # requires py4j
 from py4j.java_collections import ListConverter
 from py4j.protocol import Py4JNetworkError
 
-def saveAndOpenSelection(df, dsName:str, objectClassIdx:int, selectionName:str, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}):
+def saveAndOpenSelection(df, dsName:str, objectClassIdx:int, selectionName:str, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}):
     """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
 
     Parameters
@@ -33,5 +33,7 @@ def saveAndOpenSelection(df, dsName:str, objectClassIdx:int, selectionName:str, 
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
         pos = ListConverter().convert(df.Position.tolist(), gateway._gateway_client)
         gateway.saveCurrentSelection(dsName, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
-    except Py4JNetworkError:
-        print("Could not connect, is BACMMAN started?")
+    except Py4JNetworkError as err:
+        print("Could not connect, is BACMMAN started? Check that Python Gateway parameters match (BACMMAN menu MISC>Python Gateway)")
+        print(err)
+        # TODO save as txt file
