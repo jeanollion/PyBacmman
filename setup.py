@@ -5,14 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="PyBacmman",
-    version="0.3",
+    version="0.4",
     author="Jean Ollion",
     author_email="jean.ollion@polytechnique.org",
     description="Utilities for analysis of data generated from bacmman software",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/jeanollion/PyBacmman.git",
-    download_url = 'https://github.com/jeanollion/PyBacmman/archive/v_03.tar.gz',
+    download_url = 'https://github.com/jeanollion/PyBacmman/archive/v_04.tar.gz',
     packages=setuptools.find_packages(),
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -23,6 +23,6 @@ setuptools.setup(
     ],
     keywords = ['bacmman', 'pandas', 'data analysis'],
     python_requires='>=3',
-    install_requires=['py4j', 'pandas']
+    install_requires=['py4j', 'pandas', 'json']
 
 )
