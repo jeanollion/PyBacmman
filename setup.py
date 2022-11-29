@@ -23,6 +23,6 @@ setuptools.setup(
     ],
     keywords = ['bacmman', 'pandas', 'data analysis'],
     python_requires='>=3',
-    install_requires=['py4j', 'pandas', 'json']
+    install_requires=['py4j', 'pandas']
 
 )
