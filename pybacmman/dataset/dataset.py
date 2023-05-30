@@ -11,6 +11,8 @@ class Dataset():
     ----------
     path : str
         path to the folder containing the configuration file
+    data_path : str
+        path to the folder containing the data files (optional, if None -> path is used)
     filter : str or callable
         filter on the name of the dataset (optional)
 
@@ -26,9 +28,10 @@ class Dataset():
         path to the folder containing the configuration file
 
     """
-    def __init__(self, path:str, filter = None):
+    def __init__(self, path:str, data_path:str = None, filter = None):
         self.path = path
-        self.name = get_DS_name(path, filter)
+        self.data_path = path if data_path is None else data_path
+        self.name = get_dataset_name(path, filter)
         if self.name is not None: # inspect config file
             cf = join(path, self.name+"_config.json")
             with open(cf, errors='ignore') as f:
@@ -75,7 +78,7 @@ class Dataset():
             return object_class
 
     def _get_data_file_path(self, object_class):
-        return join(self.path, f"{self.name}_{self._get_object_class_index(object_class)}.csv")
+        return join(self.data_path, f"{self.name}_{self._get_object_class_index(object_class)}.csv")
 
     def _open_data(self, object_class, add_dataset_name_column=False):
         data = pd.read_csv(self._get_data_file_path(object_class), sep=';')
@@ -122,7 +125,7 @@ class Dataset():
         saveAndOpenSelection(selection, self.name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
 
     def __str__(self):
-        return f"{self.name} oc={self.object_class_names} path={self.path}"
+        return f"{self.name} oc={self.object_class_names} path={self.path}"+(f"data path={self.data_path}" if self.data_path!=self.path else "")
 
 class DatasetList(Dataset):
     def __init__(self, dataset_list:list = None, path:str = None, filter = None, object_class_name_mapping:dict = None):
@@ -174,7 +177,7 @@ class DatasetList(Dataset):
         return f"{[n for n in self.datasets.keys()]} oc={self.object_class_names}"
 
 # util functions
-def get_DS_name(path, filter):
+def get_dataset_name(path, filter):
     # must contain a file ending by _config.json
     if isinstance(filter, str):
         _filter = lambda file_name:filter in file_name
