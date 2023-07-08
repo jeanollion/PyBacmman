@@ -2,6 +2,7 @@ from os import listdir
 from os.path import isfile, isdir, join
 import json
 import pandas as pd
+import numpy as np
 from ..selections import saveAndOpenSelection
 
 class Dataset():
@@ -80,13 +81,18 @@ class Dataset():
     def _get_data_file_path(self, object_class):
         return join(self.data_path, f"{self.name}_{self._get_object_class_index(object_class)}.csv")
 
-    def _open_data(self, object_class, add_dataset_name_column=False):
-        data = pd.read_csv(self._get_data_file_path(object_class), sep=';')
+    def _open_data(self, object_class, add_dataset_name_column=False, **kwargs):
+        default_dtype = {'Position': 'str', 'PositionIdx':np.int16, 'Frame':np.int16, "Idx":np.int16, 'Indices':'str'}
+        if 'dtype' in kwargs and kwargs['dtype'] is not None:
+            kwargs['dtype'].update(default_dtype)
+        else:
+            kwargs['dtype'] = default_dtype
+        data = pd.read_csv(self._get_data_file_path(object_class), sep=';', **kwargs) #
         if add_dataset_name_column:
             data["DatasetName"] = self.name
         return data
 
-    def get_data(self, object_class):
+    def get_data(self, object_class, **kwargs):
         """Open measurement table of an object class as pandas dataframe.
            the file is supposed to be located in the dataset path.
            Note that when calling this method, the dataframe is stored in the dataset object. call _open_data to open the dataframe without storing it.
@@ -104,7 +110,7 @@ class Dataset():
         """
         object_class_name = self._get_object_class_name(object_class)
         if object_class_name not in self.data:
-            self.data[object_class_name] = self._open_data(object_class)
+            self.data[object_class_name] = self._open_data(object_class, **kwargs)
         return self.data[object_class_name]
 
     def save_selection(self, selection, object_class, name:str, **kwargs):
@@ -160,9 +166,9 @@ class DatasetList(Dataset):
         for d in self.datasets.values():
             d.set_object_class_name(old_object_class_name, new_object_class_name)
 
-    def _open_data(self, object_class):
+    def _open_data(self, object_class, **kwargs):
         object_class = self._get_object_class_name(object_class)
-        return pd.concat([d._open_data(object_class, add_dataset_name_column=True) for d in self.datasets.values()]) #open_data to avoid storing the data in each dataset
+        return pd.concat([d._open_data(object_class, add_dataset_name_column=True, **kwargs) for d in self.datasets.values()]) #open_data to avoid storing the data in each dataset
 
     def save_selection(self, selection, object_class, name:str, dataset_column="DatasetName", **kwargs):
         object_class_idx = self._get_object_class_index(object_class)
