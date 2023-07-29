@@ -27,6 +27,8 @@ class Dataset():
         datatable for each object class
     path : str
         path to the folder containing the configuration file
+    filter: callable or str
+        filter on dataset name. if str: test if filter is contained in dataset name
 
     """
     def __init__(self, path:str, data_path:str = None, filter = None):
@@ -46,6 +48,7 @@ class Dataset():
                     print(f"Error trying to load configuration file: {f}")
                     raise e
         self.data = {}
+        self.selections
 
     def set_object_class_name(self, old_name, new_name:str):
         """Modifies the name of an object class.
@@ -112,6 +115,32 @@ class Dataset():
         if object_class_name not in self.data:
             self.data[object_class_name] = self._open_data(object_class, **kwargs)
         return self.data[object_class_name]
+
+    def _get_selections_file_path(self):
+        return join(self.data_path, f"{self.name}_Selections.csv")
+
+    def _open_selections(self, add_dataset_name_column=False, **kwargs):
+        default_dtype = {'Position': 'str', 'PositionIdx':np.int16, 'ObjectClassIdx':np.int16, 'Indices':'str', 'Frame':np.int16, 'SelectionName':'str'}
+        if 'dtype' in kwargs and kwargs['dtype'] is not None:
+            kwargs['dtype'].update(default_dtype)
+        else:
+            kwargs['dtype'] = default_dtype
+        fp = self._get_selections_file_path()
+        if not isfile(fp):
+            columns = ['Position', 'PositionIdx', 'ObjectClassIdx', 'Indices', 'Frame', 'SelectionName']
+            if add_dataset_name_column:
+                columns.append('DatasetName')
+            return pd.DataFrame(columns=columns)
+        else :
+            data = pd.read_csv(fp, sep=';', **kwargs) #
+        if add_dataset_name_column:
+            data["DatasetName"] = self.name
+        return data
+
+    def get_selections(self, **kwargs):
+        if self.selections is None:
+            self.selections = self._open_selections(**kwargs)
+        return self.selections
 
     def save_selection(self, selection, object_class, name:str, **kwargs):
         """Save a selection (subset of objects) to BACMMAN software.
