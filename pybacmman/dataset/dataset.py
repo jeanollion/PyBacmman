@@ -1,5 +1,5 @@
 from os import listdir
-from os.path import isfile, isdir, join
+from os.path import isfile, isdir, join, isabs
 import json
 import pandas as pd
 from numpy import ndarray
@@ -38,7 +38,7 @@ class Dataset():
     def __init__(self, path:str, data_path:str = None, filter = None):
         self.path = path
         if data_path is not None:
-            self.data_path = data_path if os.path.isabs(data_path) else join(path, data_path)
+            self.data_path = data_path if isabs(data_path) else join(path, data_path)
         else:
             self.data_path = path
         self.name = get_dataset_name(path, filter)
