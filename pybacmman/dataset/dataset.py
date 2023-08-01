@@ -29,13 +29,18 @@ class Dataset():
         datatable for each object class
     path : str
         path to the folder containing the configuration file
+    data_path : str
+        (optional) path to the folder containing the data files. if None, path is used. If data_path is not absolute it is considered as relative to path
     filter: callable or str
         filter on dataset name. if str: test if filter is contained in dataset name
 
     """
     def __init__(self, path:str, data_path:str = None, filter = None):
         self.path = path
-        self.data_path = path if data_path is None else data_path
+        if data_path is not None:
+            self.data_path = data_path if os.path.isabs(data_path) else join(path, data_path)
+        else:
+            self.data_path = path
         self.name = get_dataset_name(path, filter)
         if self.name is not None: # inspect config file
             cf = join(path, self.name+"_config.json")
