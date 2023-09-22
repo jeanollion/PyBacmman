@@ -47,7 +47,13 @@ class Dataset():
             with open(cf, errors='ignore') as f:
                 try:
                     conf = json.load(f)
-                    self.object_class_names = [c["name"] for c in conf["structures"]["list"]]
+                    oc = conf["structures"]
+                    if isinstance(oc, list):
+                        self.object_class_names = [c["name"] for c in oc]  # new format
+                    elif "list" in oc:
+                        self.object_class_names = [c["name"] for c in oc["list"]]
+                    else:
+                        raise IOError(f"Invalid configuration format: could not find object class names in {oc}")
                     # ensure unicity of names
                     seen = set()
                     self.object_class_names = [_increment_name(x, seen) for x in self.object_class_names]
