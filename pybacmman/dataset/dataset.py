@@ -210,15 +210,20 @@ class Dataset():
         object_class_idx = self._get_object_class_index(object_class)
         saveAndOpenSelection(selection, self.name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
 
+    def __getitem__(self, item):
+        return self.get_data(item)
+
     def __str__(self):
         return f"{self.name} oc={self.object_class_names} path={self.path}"+(f"data path={self.data_path}" if self.data_path!=self.path else "")
 
 class DatasetList(Dataset):
-    def __init__(self, dataset_list:list = None, path:str = None, filter = None, object_class_name_mapping:dict = None):
+    def __init__(self, dataset_list:list = None, path:str = None, data_path:str = None, filter = None, object_class_name_mapping:dict = None):
         if dataset_list is not None:
             self.datasets = {d.name:d for d in dataset_list}
         elif path is not None:
-            dataset_list = [Dataset(join(path, f), filter) for f in listdir(path) if isdir(join(path, f))]
+            if data_path is not None:
+                assert not isabs(data_path), "data_path must be relative"
+            dataset_list = [Dataset(path=join(path, f), data_path=data_path, filter=filter) for f in listdir(path) if isdir(join(path, f))]
             self.datasets = {d.name:d for d in dataset_list if d.name is not None}
             if object_class_name_mapping is not None:
                 for d in self.datasets.values():
@@ -237,6 +242,9 @@ class DatasetList(Dataset):
                 self.object_class_names = [n for n in self.object_class_names if n in inter]
         assert len(self.object_class_names)>0, f"no object_class names in common between datasets : {[str(d) for d in self.datasets.values()]}"
         self.data = {}
+
+    def __getitem__(self, item):
+        return self.datasets[item]
 
     def set_object_class_name(self, old_object_class, new_object_class_name):
         old_object_class_idx = self._get_object_class_index(old_object_class)
