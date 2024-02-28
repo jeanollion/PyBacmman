@@ -4,7 +4,7 @@ from py4j.protocol import Py4JNetworkError
 import json
 import os
 
-def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}, **kwargs):
+def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPath:str=None, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}, **kwargs):
     """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
 
     Parameters
@@ -13,6 +13,8 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, showO
         each line of the DataFrame is one element of the selection, defined by columns Indices & Position
     dsName : str
         bacmman dataset name to store the selection to.
+    dsPath : str
+        path containing the bacmman dataset
     objectClassIdx : int
         index of the object class of the elements of the selection in the bacmman dataset
     selectionName : str
@@ -34,10 +36,9 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, showO
     try:
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
         pos = ListConverter().convert(df.Position.tolist(), gateway._gateway_client)
-        gateway.saveCurrentSelection(dsName, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
+        gateway.saveCurrentSelection(dsName, dsPath, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
     except Py4JNetworkError as err:
         # try to fallback to saveSelectionFile method if dsPath is provided
-        dsPath = kwargs.pop("dsPath", None)
         if dsPath is None:
             print("Could not connect, is BACMMAN started? Check that Python Gateway parameters match (BACMMAN menu MISC>Python Gateway)")
             print(err)
