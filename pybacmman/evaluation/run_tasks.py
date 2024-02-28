@@ -4,7 +4,7 @@ import os
 from os import listdir
 from os.path import isfile, join
 
-def runBacmmanTask(bacmmanFolder:str, taskFile:str, logFile:str=None, progressCallback=None, verbose=1):
+def run_bacmman_task(bacmmanFolder:str, taskFile:str, logFile:str=None, progressCallback=None, verbose=1):
     """Helper method to execute a bacmman task command, display its progress and log messages
 
     Parameters
@@ -54,9 +54,9 @@ def runBacmmanTask(bacmmanFolder:str, taskFile:str, logFile:str=None, progressCa
     else:
         cmd = "java -cp {}/*:{} bacmman.ui.ProcessTasks {}{}".format(dep_folder, bheadlessjar[0], taskFile, " "+logFile if logFile else "")
     print("Command : ", cmd)
-    return runCommand(cmd, progressCallback, verbose)
+    return run_command(cmd, progressCallback, verbose)
 
-def runCommand(cmd:str, progressCallback=None, verbose = 1):
+def run_command(cmd:str, progressCallback=None, verbose = 1):
     """Helper method to execute a (bacmman task) command, display its progress and log messages
 
     Parameters
@@ -98,7 +98,7 @@ def runCommand(cmd:str, progressCallback=None, verbose = 1):
         exit_code = p.poll()
     return error, exit_code
 
-def getJNBProgressBar():
+def get_jnb_progress_bar():
     '''
         return a progress bar for jupyter-lab / jupyter notebook, to be used with the runCommand method
         requires ipywidgets

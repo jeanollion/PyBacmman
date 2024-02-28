@@ -1,3 +1,3 @@
 name = "selections"
 
-from .selections import saveAndOpenSelection
+from .selections import store_selection

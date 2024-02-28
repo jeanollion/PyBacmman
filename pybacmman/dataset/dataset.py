@@ -4,7 +4,8 @@ import json
 import pandas as pd
 from numpy import ndarray
 import numpy as np
-from ..selections import saveAndOpenSelection
+from ..selections import store_selection
+from ..pandas import subset_by_DataFrame
 import warnings
 
 class Dataset():
@@ -35,7 +36,7 @@ class Dataset():
         filter on dataset name. if str: test if filter is contained in dataset name
 
     """
-    def __init__(self, path:str, data_path:str = None, filter = None):
+    def __init__(self, path:str, data_path:str = None, filter=None, raise_error:bool=True):
         self.path = path
         if data_path is not None:
             self.data_path = data_path if isabs(data_path) else join(path, data_path)
@@ -60,6 +61,10 @@ class Dataset():
                 except Exception as e:
                     print(f"Error trying to load configuration file: {f}")
                     raise e
+        else:
+            self.object_class_names = None
+            if raise_error:
+                raise IOError(f"Invalid dataset directory : {path}")
         self.data = {}
         self.selections = None
 
@@ -108,7 +113,7 @@ class Dataset():
             data["DatasetName"] = self.name
         return data
 
-    def get_data(self, object_class, **kwargs):
+    def get_data(self, object_class, selection=None, **kwargs):
         """Open measurement table of an object class as pandas dataframe.
            the file is supposed to be located in the dataset path.
            Note that when calling this method, the dataframe is stored in the dataset object. call _open_data to open the dataframe without storing it.
@@ -117,7 +122,9 @@ class Dataset():
         ----------
         object_class : str or int
             either name or index of the object class
-
+        selection: str or dataframe
+            str : name of a selection contained in this dataset
+            dataframe : dataframe that contains columns
         Returns
         -------
         pandas dataframe
@@ -125,9 +132,29 @@ class Dataset():
 
         """
         object_class_name = self._get_object_class_name(object_class)
+        object_class_idx = self._get_object_class_index(object_class)
         if object_class_name not in self.data:
             self.data[object_class_name] = self._open_data(object_class, **kwargs)
-        return self.data[object_class_name]
+        data = self.data[object_class_name]
+        if selection is not None:
+            if isinstance(selection, str):
+                selections = self.get_selections()
+                if selections is None:
+                    raise ValueError(f"No selections found in dataset {self}")
+                selection = selections[(selections.ObjectClassIdx == object_class_idx) & (selections.SelectionName == selection)]
+                if selection.shape[0]==0:
+                    warnings.warn(f"Selection {selection} not found for object class: {object_class}")
+            elif isinstance(selection, (list, tuple)):
+                selections = self.get_selections()
+                selections = selections[selections.ObjectClassIdx == object_class_idx]
+                all_selections = [selections[selections.SelectionName == s] if isinstance(s, str) else s for s in selection]
+                for s, sname in zip(all_selections, selection):
+                    if isinstance(sname, str) and s.shape[0]==0:
+                        warnings.warn(f"Selection: {sname} not found for object class: {object_class}")
+                selection = pd.concat(all_selections)
+                selection = selection.drop_duplicates(["Position", "Indices"])
+            return subset_by_DataFrame(data, selection, on=["Position", "Indices"])
+        return data
 
     def _get_selections_file_path(self):
         return join(self.data_path, f"{self.name}_Selections.csv")
@@ -150,7 +177,7 @@ class Dataset():
             data["DatasetName"] = self.name
         return data
 
-    def set_selections(self, selections = None):
+    def append_selections_to_data(self, selections=None):
         """For each selection, adds a boolean column to the dataFrame with the name of the selection, with True where the object defined by (Position, Indices) is included in the selection. Object class is infered from the selection name.
 
         Parameters
@@ -164,6 +191,7 @@ class Dataset():
         all_selections = self.get_selections()
         if all_selections is None:
             warnings.warn(f"No selections found in dataset: {self.name}")
+            return
         if selections is None:
             selections = all_selections["SelectionName"].unique()
             print(type(selections))
@@ -171,7 +199,6 @@ class Dataset():
             selections = [selections]
         if not isinstance(selections, (tuple, list, ndarray)):
             raise ValueError("selections should be a str, tuple or list of str, or ndarray")
-
         for sel_name in selections:
             sel = all_selections[all_selections["SelectionName"] == sel_name]
             if sel.shape[0] == 0:
@@ -193,7 +220,7 @@ class Dataset():
             self.selections = self._open_selections(**kwargs)
         return self.selections
 
-    def save_selection(self, selection, object_class, name:str, **kwargs):
+    def store_selection(self, selection, object_class, name:str, **kwargs):
         """Save a selection (subset of objects) to BACMMAN software.
 
         Parameters
@@ -204,11 +231,11 @@ class Dataset():
             dataframe containing indices and positions of objects to include in the selection
         name : name of the selection
         **kwargs : dict
-            extra arguments passed to saveAndOpenSelection method, such as port, python_proxy_port, address
+            extra arguments passed to save_selection method, such as port, python_proxy_port, address
 
         """
         object_class_idx = self._get_object_class_index(object_class)
-        saveAndOpenSelection(selection, self.name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
+        store_selection(selection, self.name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
 
     def __getitem__(self, item):
         return self.get_data(item)
@@ -223,7 +250,7 @@ class DatasetList(Dataset):
         elif path is not None:
             if data_path is not None:
                 assert not isabs(data_path), "data_path must be relative"
-            dataset_list = [Dataset(path=join(path, f), data_path=data_path, filter=filter) for f in listdir(path) if isdir(join(path, f))]
+            dataset_list = [Dataset(path=join(path, f), data_path=data_path, filter=filter, raise_error=False) for f in listdir(path) if isdir(join(path, f))]
             self.datasets = {d.name:d for d in dataset_list if d.name is not None}
             if object_class_name_mapping is not None:
                 for d in self.datasets.values():
@@ -258,14 +285,13 @@ class DatasetList(Dataset):
         object_class = self._get_object_class_name(object_class)
         return pd.concat([d._open_data(object_class, add_dataset_name_column=True, **kwargs) for d in self.datasets.values()]) #open_data to avoid storing the data in each dataset
 
-    def save_selection(self, selection, object_class, name:str, dataset_column="DatasetName", **kwargs):
-        object_class_idx = self._get_object_class_index(object_class)
+    def store_selection(self, selection, object_class, name:str, dataset_column="DatasetName", **kwargs):
         object_class_name = self._get_object_class_name(object_class)
         for ds_name, sel in selection.groupby(dataset_column):
             if ds_name not in self.datasets:
                 print(f"Error: dataset {ds_name} not in datasets: {str(self)}")
             else:
-                self.datasets[ds_name].save_selection(sel, object_class_name, name, **kwargs)
+                self.datasets[ds_name].store_selection(sel, object_class_name, name, **kwargs)
 
     def __str__(self):
         return f"{[n for n in self.datasets.keys()]} oc={self.object_class_names}"

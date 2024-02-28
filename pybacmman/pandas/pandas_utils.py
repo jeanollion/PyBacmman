@@ -1,10 +1,10 @@
 import pandas as pd
 from pandas import merge
-from .indices_utils import getNext, getPrevious
+from .indices_utils import get_next, get_previous
 import math
 import matplotlib.pyplot as plt
 
-def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = [], remove:bool=False):
+def subset_by_DataFrame(df, dfSubset, on, sub_on=None, keepCols=[], remove:bool=False):
     """Return rows of dataframe df that are present in dfSubset
 
     Parameters
@@ -49,7 +49,7 @@ def subsetByDataframe(df, dfSubset, on, sub_on=None, keepCols = [], remove:bool=
         res.drop(rem_cols, 1, inplace=True)
     return res
 
-def mapColumns(df, df2, columns, on, on2=None):
+def map_columns(df, df2, columns, on, on2=None):
     """Return rows of dataframe df that are present in dfSubset
 
     Parameters
@@ -91,7 +91,7 @@ def mapColumns(df, df2, columns, on, on2=None):
     else:
         return [res.loc[:,c] for c in columns]
 
-def setSelectionEdges(dfSelection, left=True):
+def set_selection_edges(dfSelection, left=True):
     """Create a boolean column that defines the edge of the selection (in terms of Frames). If left=True: value is True when there is no previous object. If left = false, value is True when there is no next object
 
     Parameters
@@ -108,13 +108,13 @@ def setSelectionEdges(dfSelection, left=True):
 
     """
     colName = "LeftEdge" if left else "RightEdge"
-    fun = getNext if left else getPrevious
+    fun = get_next if left else get_previous
     dfNeigh = pd.DataFrame({"SelectionName":dfSelection.SelectionName, "Position":dfSelection.Position, "Indices":dfSelection.Indices.apply(fun)})
     leftEdges = pd.concat([dfSelection[["SelectionName", "Position", "Indices"]], dfNeigh, dfNeigh]).drop_duplicates(keep=False)
     dfSelection[colName] = False
     dfSelection.loc[leftEdges.index, colName] = True
 
-def groupPlot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(12,4)):
+def group_plot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(12, 4)):
     """Short summary.
 
     Parameters

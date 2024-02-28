@@ -8,11 +8,11 @@ def interpolateX(x1, y1, x2, y2):
     y2_tot=np.interp(x_tot,x2,y2)
     return x_tot, y1_tot, y2_tot
 
-def computeAeraUnderMin(x, y1, y2):
+def compute_aera_under_min(x, y1, y2):
     y_min=np.minimum(y1,y2);
     return np.trapz(y_min,x)
 
-def interpolatedIntercepts(x, y1, y2):
+def interpolated_intercepts(x, y1, y2):
     """Find the intercepts of two curves, given by the same x data"""
 
     def intercept(point1, point2, point3, point4):

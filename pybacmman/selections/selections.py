@@ -4,7 +4,7 @@ from py4j.protocol import Py4JNetworkError
 import json
 import os
 
-def saveAndOpenSelection(df, dsName:str, objectClassIdx:int, selectionName:str, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}, **kwargs):
+def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}, **kwargs):
     """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
 
     Parameters
@@ -45,9 +45,9 @@ def saveAndOpenSelection(df, dsName:str, objectClassIdx:int, selectionName:str, 
             print(err)
         else:
             print(f"Could not connect through python gateway, saving selection as a file to {dsPath}")
-            saveSelectionFile(df, dsPath=dsPath, objectClassIdx=objectClassIdx, selectionName=selectionName, **kwargs)
+            store_selection_file(df, dsPath=dsPath, objectClassIdx=objectClassIdx, selectionName=selectionName, **kwargs)
 
-def saveSelectionFile(df, dsPath:str, objectClassIdx:int, selectionName:str, indexCol:str="Indices", positionCol:str="Position"):
+def store_selection_file(df, dsPath:str, objectClassIdx:int, selectionName:str, indexCol:str= "Indices", positionCol:str= "Position"):
     data = {
         "name": selectionName,
         "objectClassIdx": objectClassIdx,
