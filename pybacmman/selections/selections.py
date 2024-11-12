@@ -14,7 +14,7 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPat
     dsName : str
         bacmman dataset name to store the selection to.
     dsPath : str
-        path containing the bacmman dataset
+        path to the folder containing the bacmman dataset. Can be omitted if BACMMAN is open and dsName is a relative name to the working directory currently set in BACMMAN
     objectClassIdx : int
         index of the object class of the elements of the selection in the bacmman dataset
     selectionName : str
