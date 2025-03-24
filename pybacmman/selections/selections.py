@@ -4,7 +4,7 @@ from py4j.protocol import Py4JNetworkError
 import json
 import os
 
-def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPath:str=None, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=25335, python_proxy_port:int=25334, address='127.0.0.1', gateway_parameters={}, **kwargs):
+def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPath:str=None, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=None, python_proxy_port:int=None, address:str=None, gateway_parameters={}, **kwargs):
     """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
 
     Parameters
@@ -32,6 +32,12 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPat
     python_proxy_port : int
         python port of the java gateway
     """
+    if port is None:
+        port = int(os.getenv("PYBACMMAN_PORT", 25335))
+    if python_proxy_port is None:
+        python_proxy_port = int(os.getenv("PYBACMMAN_PYPROXYPORT", 25334))
+    if address is None:
+        address = os.getenv("PYBACMMAN_ADDRESS", '127.0.0.1')
     gateway = JavaGateway(python_proxy_port=python_proxy_port, gateway_parameters=GatewayParameters(address=address, port=port, **gateway_parameters))
     try:
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
@@ -60,7 +66,7 @@ def store_selection_file(df, dsPath:str, objectClassIdx:int, selectionName:str, 
     if not os.path.exists(sel_path): # check path and create if necessary
         os.makedirs(sel_path, exist_ok=True)
         if not os.path.exists(sel_path):
-            print(f"coud not create selection dir: {sel.path}, cannot save selection")
+            print(f"could not create selection dir: {sel_path}, cannot save selection")
     file_path = os.path.join(sel_path, selectionName + ".json")
     with open(file_path, "w") as outfile:
         outfile.write(json_object)
