@@ -22,7 +22,7 @@ class Dataset():
 
     Attributes
     ----------
-    name : str
+    config_name : str
         dataset name
     object_class_names : list of str
         names of the object classes of the dataset. By default names are found in the configuration file, but can be renamed using the set_object_class_name method
@@ -36,15 +36,15 @@ class Dataset():
         filter on dataset name. if str: test if filter is contained in dataset name
 
     """
-    def __init__(self, path:str, data_path:str = None, filter=None, raise_error:bool=True):
+    def __init__(self, path:str, data_path:str = None, filter=None, name:str=None, raise_error:bool=True):
         self.path = path
         if data_path is not None:
             self.data_path = data_path if isabs(data_path) else join(path, data_path)
         else:
             self.data_path = path
-        self.name = get_dataset_name(path, filter)
-        if self.name is not None: # inspect config file
-            cf = join(path, self.name+"_config.json")
+        self.config_name = get_dataset_name(path, filter)
+        if self.config_name is not None: # inspect config file
+            cf = join(path, self.config_name+"_config.json")
             with open(cf, errors='ignore') as f:
                 try:
                     conf = json.load(f)
@@ -65,6 +65,7 @@ class Dataset():
             self.object_class_names = None
             if raise_error:
                 raise IOError(f"Invalid dataset directory : {path}")
+        self.name = self.config_name if name is None else name
         self.data = {}
         self.selections = None
 
@@ -100,7 +101,7 @@ class Dataset():
             return object_class
 
     def _get_data_file_path(self, object_class):
-        return join(self.data_path, f"{self.name}_{self._get_object_class_index(object_class)}.csv")
+        return join(self.data_path, f"{self.config_name}_{self._get_object_class_index(object_class)}.csv")
 
     def _open_data(self, object_class, add_dataset_name_column=False, **kwargs):
         default_dtype = {'Position': 'str', 'PositionIdx':np.int16, 'Frame':np.int16, "Idx":np.int16, 'Indices':'str'}
@@ -157,7 +158,7 @@ class Dataset():
         return data
 
     def _get_selections_file_path(self):
-        return join(self.data_path, f"{self.name}_Selections.csv")
+        return join(self.data_path, f"{self.config_name}_Selections.csv")
 
     def _open_selections(self, add_dataset_name_column=False, **kwargs):
         default_dtype = {'Position': 'str', 'PositionIdx':np.int16, 'ObjectClassIdx':np.int16, 'Indices':'str', 'Frame':np.int16, 'SelectionName':'str'}
@@ -235,7 +236,7 @@ class Dataset():
 
         """
         object_class_idx = self._get_object_class_index(object_class)
-        store_selection(selection, self.name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
+        store_selection(selection, self.config_name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
 
     def __getitem__(self, item):
         return self.get_data(item)
@@ -244,14 +245,20 @@ class Dataset():
         return f"{self.name} oc={self.object_class_names} path={self.path}"+(f"data path={self.data_path}" if self.data_path!=self.path else "")
 
 class DatasetList(Dataset):
-    def __init__(self, dataset_list:list = None, path:str = None, data_path:str = None, filter = None, object_class_name_mapping:dict = None):
+    def __init__(self, dataset_list:list = None, path:str = None, data_path:str = None, config_path:str=None, filter = None, object_class_name_mapping:dict = None):
         if dataset_list is not None:
             self.datasets = {d.name:d for d in dataset_list}
         elif path is not None:
-            if data_path is not None:
-                assert not isabs(data_path), "data_path must be relative"
-            dataset_list = [Dataset(path=join(path, f), data_path=data_path, filter=filter, raise_error=False) for f in listdir(path) if isdir(join(path, f))]
-            self.datasets = {d.name:d for d in dataset_list if d.name is not None}
+            if config_path is not None:
+                assert data_path is None, "data_path is not taken into account when config_path is provided"
+                dataset_list = [Dataset(path=config_path, data_path=join(path, f), filter=filter, name = f, raise_error=False) for f
+                                in listdir(path) if isdir(join(path, f))]
+                self.datasets = {d.name: d for d in dataset_list if d.name is not None}
+            else:
+                if data_path is not None:
+                    assert not isabs(data_path), "data_path must be relative"
+                dataset_list = [Dataset(path=join(path, f), data_path=data_path, filter=filter, raise_error=False) for f in listdir(path) if isdir(join(path, f))]
+                self.datasets = {d.name:d for d in dataset_list if d.name is not None}
             if object_class_name_mapping is not None:
                 for d in self.datasets.values():
                     for i, n in enumerate(d.object_class_names):
@@ -267,6 +274,7 @@ class DatasetList(Dataset):
             else:
                 inter = set(self.object_class_names).intersection(d.object_class_names)
                 self.object_class_names = [n for n in self.object_class_names if n in inter]
+        assert self.object_class_names is not None, "no object classes found"
         assert len(self.object_class_names)>0, f"no object_class names in common between datasets : {[str(d) for d in self.datasets.values()]}"
         self.data = {}
 
