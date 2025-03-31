@@ -38,6 +38,11 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPat
         python_proxy_port = int(os.getenv("PYBACMMAN_PYPROXYPORT", 25334))
     if address is None:
         address = os.getenv("PYBACMMAN_ADDRESS", '127.0.0.1')
+    # fix path if called from from docker
+    container_dir = os.getenv("BACMMAN_CONTAINER_DIR")
+    wd = os.getenv("BACMMAN_WD")
+    if container_dir is not None and wd is not None and container_dir in dsPath:
+        dsPath = dsPath.replace(container_dir, wd)
     gateway = JavaGateway(python_proxy_port=python_proxy_port, gateway_parameters=GatewayParameters(address=address, port=port, **gateway_parameters))
     try:
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
