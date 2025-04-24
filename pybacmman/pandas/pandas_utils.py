@@ -50,7 +50,7 @@ def subset_by_DataFrame(df, dfSubset, on, sub_on=None, keepCols=[], remove:bool=
     return res
 
 def map_columns(df, df2, columns, on, on2=None):
-    """Return rows of dataframe df that are present in dfSubset
+    """Return mapped columns from df2 with the index of df using on (resp. on2) columns to match rows
 
     Parameters
     ----------
@@ -61,27 +61,26 @@ def map_columns(df, df2, columns, on, on2=None):
     columns : String or list of Strings
         column(s) of df2 to be returned
     on : list of Strings
-        Column names to map df and df2. These must be found in both DataFrames if sub2 is None.
-    sub2 : list of Strings
+        Column names to map df and df2. These must be found in both DataFrames if on2 is None.
+    on2 : list of Strings
         Column names in the df2 DataFrame to be mapped to on columns in df.
 
 
     Returns
     -------
     DataFrame
-        subset of df
+        list of columns with rows
 
     """
     if on2 is None:
         on2=on
-    else:
-        assert len(on2)==len(on), "sub2 should have same length as on"
-    if not isinstance(columns, list):
-        columns = [columns]
     if not isinstance(on2, list):
         on2 = [on2]
     if not isinstance(on, list):
-        on [on]
+        on = [on]
+    assert len(on2)==len(on), "on2 should have same length as on"
+    if not isinstance(columns, list):
+        columns = [columns]
     subcols = on2 + columns
     df2 = df2[subcols].drop_duplicates()
     res = pd.merge(df[on], df2, how='left', left_on=on, right_on=on2)
@@ -90,6 +89,41 @@ def map_columns(df, df2, columns, on, on2=None):
         return res.loc[:,columns[0]]
     else:
         return [res.loc[:,c] for c in columns]
+
+def merge_dataframes(df, df2, on, on2=None, columns_from_df2=None):
+    """
+    Merge two DataFrames based on specified columns and retain the index of the first DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): The first DataFrame.
+    df2 (pd.DataFrame): The second DataFrame.
+    on (str or list): The column(s) in df to merge on.
+    on2 (str or list, optional): The column(s) in df2 to merge on. Defaults to on if not provided.
+    columns_from_df2 (list, optional): List of columns from df2 to include in the merged DataFrame.
+                                       If None, all columns from df2 will be included.
+
+    Returns:
+    pd.DataFrame: The merged DataFrame with the index of df.
+    """
+    if on2 is None:
+        on2 = on
+    if not isinstance(on2, list):
+        on2 = [on2]
+    if not isinstance(on, list):
+        on = [on]
+    assert len(on2) == len(on), "on2 should have the same length as on"
+    if columns_from_df2 is None:
+        columns_from_df2 = df2.columns.tolist()
+    for on2_el in on2:
+        if on2_el not in columns_from_df2:
+            columns_from_df2.append(on2_el)
+    merged_df = pd.merge(df, df2[columns_from_df2], left_on=on, right_on=on2, how='left', suffixes=(None, '_df2'))
+    cols_to_drop = [f"{col}_df2" for col in on2 if col not in on]
+    if len(cols_to_drop)>0:
+        merged_df.drop(columns=cols_to_drop, inplace=True)
+    merged_df.index = df.index
+
+    return merged_df
 
 def set_selection_edges(dfSelection, left=True):
     """Create a boolean column that defines the edge of the selection (in terms of Frames). If left=True: value is True when there is no previous object. If left = false, value is True when there is no next object

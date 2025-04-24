@@ -262,7 +262,7 @@ class DatasetList(Dataset):
             if object_class_name_mapping is not None:
                 for d in self.datasets.values():
                     for i, n in enumerate(d.object_class_names):
-                        if n in object_class_name_mapping:
+                        if n in object_class_name_mapping and object_class_name_mapping[n] not in d.object_class_names:
                             d.object_class_names[i] = object_class_name_mapping[n]
 
         assert len(self.datasets)>1, "no datasets where found"
@@ -313,7 +313,7 @@ def get_dataset_name(path, filter):
         _filter = filter
     if isdir(path):
         for f in listdir(path):
-            if f.endswith("_config.json") and (filter is None or _filter(f)) and isfile(join(path, f)):
+            if f.endswith("_config.json") and (filter is None or _filter(f[:-12])) and isfile(join(path, f)):
                 return f[:-12]
     return None
 
@@ -327,3 +327,4 @@ def _increment_name(name, seen):
         name = new_name
     seen.add(name)
     return name
+
