@@ -104,7 +104,9 @@ class Dataset():
         return join(self.data_path, f"{self.config_name}_{self._get_object_class_index(object_class)}.csv")
 
     def _open_data(self, object_class, add_dataset_name_column=False, **kwargs):
-        default_dtype = {'Position': 'str', 'PositionIdx':np.int16, 'Frame':np.int16, "Idx":np.int16, 'Indices':'str'}
+        default_dtype = {'Position': str, 'PositionIdx':np.int16, 'Frame':np.int16, "Idx":np.int16,
+                         'Indices':str, 'TrackHeadIndices':str, 'ParentTrackHeadIndices':str, 'Prev':str,
+                         'Next':str, 'TrackErrorNext':bool, 'TrackErrorPrev':bool}
         if 'dtype' in kwargs and kwargs['dtype'] is not None:
             kwargs['dtype'].update(default_dtype)
         else:
@@ -114,7 +116,7 @@ class Dataset():
             data["DatasetName"] = self.name
         return data
 
-    def get_data(self, object_class, selection=None, **kwargs):
+    def get_data(self, object_class, selection=None, copy:bool=True, cache:bool=True, **kwargs):
         """Open measurement table of an object class as pandas dataframe.
            the file is supposed to be located in the dataset path.
            Note that when calling this method, the dataframe is stored in the dataset object. call _open_data to open the dataframe without storing it.
@@ -126,6 +128,10 @@ class Dataset():
         selection: str or dataframe
             str : name of a selection contained in this dataset
             dataframe : dataframe that contains columns
+        copy: bool
+            only used if selection is None. returned a copy of the dataframe to avoid modifying the cached one
+        cache: bool
+            cache the dataframe
         Returns
         -------
         pandas dataframe
@@ -135,8 +141,11 @@ class Dataset():
         object_class_name = self._get_object_class_name(object_class)
         object_class_idx = self._get_object_class_index(object_class)
         if object_class_name not in self.data:
-            self.data[object_class_name] = self._open_data(object_class, **kwargs)
-        data = self.data[object_class_name]
+            data = self._open_data(object_class, **kwargs)
+            if cache:
+                self.data[object_class_name] = data
+        else:
+            data = self.data[object_class_name]
         if selection is not None:
             if isinstance(selection, str):
                 selections = self.get_selections()
@@ -155,7 +164,8 @@ class Dataset():
                 selection = pd.concat(all_selections)
                 selection = selection.drop_duplicates(["Position", "Indices"])
             return subset_by_DataFrame(data, selection, on=["Position", "Indices"])
-        return data
+        else:
+            return data.copy() if copy else data
 
     def _get_selections_file_path(self):
         return join(self.data_path, f"{self.config_name}_Selections.csv")
@@ -291,7 +301,7 @@ class DatasetList(Dataset):
 
     def _open_data(self, object_class, **kwargs):
         object_class = self._get_object_class_name(object_class)
-        return pd.concat([d._open_data(object_class, add_dataset_name_column=True, **kwargs) for d in self.datasets.values()]) #open_data to avoid storing the data in each dataset
+        return pd.concat([d.get_data(object_class, add_dataset_name_column=True, copy=False, cache=False, **kwargs) for d in self.datasets.values()]) # do not cache both in each dataset and datasetList
 
     def store_selection(self, selection, object_class, name:str, dataset_column="DatasetName", **kwargs):
         object_class_name = self._get_object_class_name(object_class)
