@@ -42,20 +42,21 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPat
     container_dir = os.getenv("BACMMAN_CONTAINER_DIR")
     wd = os.getenv("BACMMAN_WD")
     if container_dir is not None and wd is not None and container_dir in dsPath:
-        dsPath = dsPath.replace(container_dir, wd)
+        dsPath_host = dsPath.replace(container_dir, wd)
+    else:
+        dsPath_host = dsPath
     gateway = JavaGateway(python_proxy_port=python_proxy_port, gateway_parameters=GatewayParameters(address=address, port=port, **gateway_parameters))
     try:
         idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
         pos = ListConverter().convert(df.Position.tolist(), gateway._gateway_client)
-        gateway.saveCurrentSelection(dsName, dsPath, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
+        gateway.saveCurrentSelection(dsName, dsPath_host, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
     except Py4JNetworkError as err:
-        # try to fallback to saveSelectionFile method if dsPath is provided
+        print("Could not connect, is BACMMAN started? Check that Python Gateway parameters match (BACMMAN menu MISC>Python Gateway)")
+        print(err)
         if dsPath is None:
-            print("Could not connect, is BACMMAN started? Check that Python Gateway parameters match (BACMMAN menu MISC>Python Gateway)")
-            print(err)
             print("provide path to dataset as dsPath in kwargs to save selection as a file")
             print(err)
-        else:
+        else:  # try to fallback to saveSelectionFile method if dsPath is provided
             print(f"Could not connect through python gateway, saving selection as a file to {dsPath}")
             store_selection_file(df, dsPath=dsPath, objectClassIdx=objectClassIdx, selectionName=selectionName, **kwargs)
 
