@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="PyBacmman",
-    version="0.6.4",
+    version="0.6.5",
     author="Jean Ollion",
     author_email="jean.ollion@polytechnique.org",
     description="Utilities for analysis of data generated from bacmman software",

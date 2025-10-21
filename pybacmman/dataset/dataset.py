@@ -1,3 +1,4 @@
+import os.path
 from os import listdir
 from os.path import isfile, isdir, join, isabs
 import json
@@ -5,7 +6,7 @@ import pandas as pd
 from numpy import ndarray
 import numpy as np
 from ..selections import store_selection
-from ..pandas import subset_by_DataFrame
+from ..pandas import subset_by_dataframe, get_parent
 import warnings
 
 class Dataset():
@@ -37,7 +38,7 @@ class Dataset():
 
     """
     def __init__(self, path:str, data_path:str = None, filter=None, name:str=None, raise_error:bool=True):
-        self.path = path
+        self.path = os.path.abspath(path)
         if data_path is not None:
             self.data_path = data_path if isabs(data_path) else join(path, data_path)
         else:
@@ -49,12 +50,14 @@ class Dataset():
                 try:
                     conf = json.load(f)
                     oc = conf["structures"]
-                    if isinstance(oc, list):
-                        self.object_class_names = [c["name"] for c in oc]  # new format
-                    elif "list" in oc:
-                        self.object_class_names = [c["name"] for c in oc["list"]]
-                    else:
-                        raise IOError(f"Invalid configuration format: could not find object class names in {oc}")
+                    if not isinstance(oc, list):
+                        if "list" in oc: # legacy format
+                            oc = oc["list"]
+                        else:
+                            raise IOError(f"Invalid configuration format: could not find object class names in {oc}")
+
+                    self.object_class_names = [c["name"] for c in oc]  # new format
+                    self.parent_oc = [ (int(c["parentStructure"][0]) if len(c["parentStructure"])>0 else -1) if isinstance(c["parentStructure"], (tuple, list)) else int(c["parentStructure"]) for c in oc]
                     # ensure unicity of names
                     seen = set()
                     self.object_class_names = [_increment_name(x, seen) for x in self.object_class_names]
@@ -63,6 +66,7 @@ class Dataset():
                     raise e
         else:
             self.object_class_names = None
+            self.parent_oc = None
             if raise_error:
                 raise IOError(f"Invalid dataset directory : {path}")
         self.name = self.config_name if name is None else name
@@ -100,6 +104,15 @@ class Dataset():
         else:
             return object_class
 
+    def _get_path_to_root(self, object_class):
+        object_class = self._get_object_class_index(object_class)
+        ptr = [object_class]
+        cur = object_class
+        while cur>=0:
+            cur = self.parent_oc[cur]
+            ptr.append(cur)
+        return ptr
+
     def _get_data_file_path(self, object_class):
         return join(self.data_path, f"{self.config_name}_{self._get_object_class_index(object_class)}.csv")
 
@@ -111,7 +124,15 @@ class Dataset():
             kwargs['dtype'].update(default_dtype)
         else:
             kwargs['dtype'] = default_dtype
-        data = pd.read_csv(self._get_data_file_path(object_class), sep=';', **kwargs) #
+        try :
+            data = pd.read_csv(self._get_data_file_path(object_class), sep=';', **kwargs) #
+        except ValueError as e:
+            if "Bool column has NA values" in str(e):
+                del default_dtype['TrackErrorNext']
+                del default_dtype['TrackErrorPrev']
+                data = pd.read_csv(self._get_data_file_path(object_class), sep=';', **kwargs)
+            else:
+                raise e
         if add_dataset_name_column:
             data["DatasetName"] = self.name
         return data
@@ -131,7 +152,7 @@ class Dataset():
         copy: bool
             only used if selection is None. returned a copy of the dataframe to avoid modifying the cached one
         cache: bool
-            cache the dataframe
+            cache the source dataframe. if selection is provided, the filtered dataframe is not cached
         Returns
         -------
         pandas dataframe
@@ -147,23 +168,35 @@ class Dataset():
         else:
             data = self.data[object_class_name]
         if selection is not None:
-            if isinstance(selection, str):
-                selections = self.get_selections()
-                if selections is None:
-                    raise ValueError(f"No selections found in dataset {self}")
-                selection = selections[(selections.ObjectClassIdx == object_class_idx) & (selections.SelectionName == selection)]
-                if selection.shape[0]==0:
-                    warnings.warn(f"Selection {selection} not found for object class: {object_class}")
-            elif isinstance(selection, (list, tuple)):
-                selections = self.get_selections()
-                selections = selections[selections.ObjectClassIdx == object_class_idx]
-                all_selections = [selections[selections.SelectionName == s] if isinstance(s, str) else s for s in selection]
-                for s, sname in zip(all_selections, selection):
-                    if isinstance(sname, str) and s.shape[0]==0:
-                        warnings.warn(f"Selection: {sname} not found for object class: {object_class}")
-                selection = pd.concat(all_selections)
-                selection = selection.drop_duplicates(["Position", "Indices"])
-            return subset_by_DataFrame(data, selection, on=["Position", "Indices"])
+            selections = self.get_selections(name=selection)
+            if selections.shape[0] > 0:
+                ocList = list(selections.ObjectClassIdx.unique())
+                # only accept object class idx or parents
+                ptr = self._get_path_to_root(object_class)
+                ocList = [oc for oc in ptr if oc in ocList]
+                for oc in ptr:
+                    if oc == object_class_idx:
+                        if oc in ocList: # filter
+                            sel = selections[selections.ObjectClassIdx == object_class_idx].drop_duplicates(["Position", "Indices"])
+                            data = subset_by_dataframe(data, sel, on=["Position", "Indices"])
+                            #print(f"sel by oc {sel.shape[0]} -> {data.shape[0]}")
+                    elif oc >=0 : # parent -> compute parent indices
+                        source_col = "Indices" if oc == self.parent_oc[object_class_idx] else "ParentIndices"
+                        data["ParentIndices"] = data[source_col].apply(get_parent)
+                        if oc in ocList: # filter
+                            sel = selections[selections.ObjectClassIdx == oc].drop_duplicates( ["Position", "Indices"])
+                            data = subset_by_dataframe(data, sel, on=["Position", "ParentIndices"], sub_on=["Position", "Indices"])
+                            #print(f"sel by parent: {oc}={sel.shape[0]} -> {data.shape[0]}")
+                    else: # viewfield
+                        if -1 in ocList: # filter
+                            sel = selections[selections.ObjectClassIdx == -1]
+                            data = subset_by_dataframe(data, sel, on=["Position"])
+                            #print(f"sel by position: {oc}={sel.shape[0]} -> {data.shape[0]}")
+                if "ParentIndices" in data.columns:
+                    data.drop(columns="ParentIndices", inplace=True)
+                return data
+            else: # return void
+                return subset_by_dataframe(data, selection, on=["Position", "Indices"])
         else:
             return data.copy() if copy else data
 
@@ -177,7 +210,7 @@ class Dataset():
         else:
             kwargs['dtype'] = default_dtype
         fp = self._get_selections_file_path()
-        if not isfile(fp):
+        if not isfile(fp): # empty selection
             columns = ['Position', 'PositionIdx', 'ObjectClassIdx', 'Indices', 'Frame', 'SelectionName']
             if add_dataset_name_column:
                 columns.append('DatasetName')
@@ -189,7 +222,7 @@ class Dataset():
         return data
 
     def append_selections_to_data(self, selections=None):
-        """For each selection, adds a boolean column to the dataFrame with the name of the selection, with True where the object defined by (Position, Indices) is included in the selection. Object class is infered from the selection name.
+        """For each selection, adds a boolean column to the dataFrame with the name of the selection, with True where the object defined by (Position, Indices) is included in the selection.
 
         Parameters
         ----------
@@ -226,9 +259,25 @@ class Dataset():
                 data[sel_name] = False
                 data.loc[merge, sel_name] = True
 
-    def get_selections(self, **kwargs):
+    def get_selections(self, name=None, add_dataset_name_column=False, **kwargs):
         if self.selections is None:
-            self.selections = self._open_selections(**kwargs)
+            self.selections = self._open_selections(add_dataset_name_column=add_dataset_name_column, **kwargs)
+        elif add_dataset_name_column and "DatasetName" not in self.selections.columns:
+            self.selections["DatasetName"] = self.name
+        if self.selections is not None and name is not None:
+            if isinstance(name, str):
+                selection = self.selections[self.selections.SelectionName == name]
+                if selection.shape[0] == 0:
+                    warnings.warn(f"Selection {name} not found")
+            elif isinstance(name, (list, tuple, set, pd.Series, np.ndarray)):
+                selection = self.selections[self.selections.SelectionName.isin(name)]
+                found = set(self.selections.SelectionName.unique()).intersection(name)
+                missing = set(name) - found
+                if len(missing) > 0:
+                    warnings.warn(f"Selections: {missing} not found")
+            else:
+                raise ValueError(f"Invalid selection name: {name}")
+            return selection
         return self.selections
 
     def store_selection(self, selection, object_class, name:str, **kwargs):
@@ -256,9 +305,14 @@ class Dataset():
 
 class DatasetList(Dataset):
     def __init__(self, dataset_list:list = None, path:str = None, data_path:str = None, config_path:str=None, filter = None, object_class_name_mapping:dict = None):
+        if path is not None:
+            path = os.path.abspath(path)
+        if config_path is not None:
+            config_path = os.path.abspath(config_path)
+        assert dataset_list is not None or path is not None, "either provide dataset_list or path"
         if dataset_list is not None:
             self.datasets = {d.name:d for d in dataset_list}
-        elif path is not None:
+        else: # path is not None:
             if config_path is not None:
                 assert data_path is None, "data_path is not taken into account when config_path is provided"
                 dataset_list = [Dataset(path=config_path, data_path=join(path, f), filter=filter, name = f, raise_error=False) for f
@@ -299,9 +353,13 @@ class DatasetList(Dataset):
         for d in self.datasets.values():
             d.set_object_class_name(old_object_class_name, new_object_class_name)
 
-    def _open_data(self, object_class, **kwargs):
+    def get_data(self, object_class, selection=None, **kwargs):
         object_class = self._get_object_class_name(object_class)
-        return pd.concat([d.get_data(object_class, add_dataset_name_column=True, copy=False, cache=False, **kwargs) for d in self.datasets.values()]) # do not cache both in each dataset and datasetList
+        return pd.concat([d.get_data(object_class, add_dataset_name_column=True, selection=selection, copy=False, **kwargs) for d in self.datasets.values()]) # do not cache both in each dataset and datasetList
+
+    def get_selections(self, name=None, **kwargs):
+        selection_list = [d.get_selections(name=name, add_dataset_name_column=True, **kwargs) for d in self.datasets.values()]
+        return pd.concat(selection_list)
 
     def store_selection(self, selection, object_class, name:str, dataset_column="DatasetName", **kwargs):
         object_class_name = self._get_object_class_name(object_class)

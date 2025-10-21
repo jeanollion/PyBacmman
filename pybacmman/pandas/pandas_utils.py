@@ -2,22 +2,21 @@ import pandas as pd
 from pandas import merge
 from .indices_utils import get_next, get_previous
 import math
-import matplotlib.pyplot as plt
 
-def subset_by_DataFrame(df, dfSubset, on, sub_on=None, keepCols=[], remove:bool=False):
+def subset_by_dataframe(df, df_subset, on, sub_on=None, keep_cols=[], remove:bool=False):
     """Return rows of dataframe df that are present in dfSubset
 
     Parameters
     ----------
     df : DataFrame
         DataFrame to subset
-    dfSubset : DataFrame
+    df_subset : DataFrame
         DataFrame used to define the subset
     on : list of Strings
         Column names to join on. These must be found in both DataFrames if sub_on is None.
     sub_on : list of Strings
         Column names to join on in the dfSubset DataFrame.
-    keepCols : list of Strings
+    keep_cols : list of Strings
         columns of dfSubset that should be kept in resulting DataFrame
     remove : boolean
         if true, rows of df matching with dfSubset will be removed.
@@ -34,19 +33,19 @@ def subset_by_DataFrame(df, dfSubset, on, sub_on=None, keepCols=[], remove:bool=
     else:
         assert len(sub_on)==len(on), "sub_on should have same length as on"
         rem_cols = [c+'_y' for c in sub_on if not c in on]
-    if len(keepCols)==0:
+    if len(keep_cols)==0:
         subcols = sub_on
     else:
-        subcols = sub_on + keepCols
-    dfSubset = dfSubset[subcols].drop_duplicates()
+        subcols = sub_on + keep_cols
+    df_subset = df_subset[subcols].drop_duplicates()
     if not remove:
-        res = merge(df, dfSubset, how='inner', left_on=on, right_on=sub_on, suffixes=('', '_y'))
+        res = merge(df, df_subset, how='inner', left_on=on, right_on=sub_on, suffixes=('', '_y'))
     else:
-        res = merge(df, dfSubset, how='left', left_on=on, right_on=sub_on, suffixes=('', '_y'), indicator=True)
+        res = merge(df, df_subset, how='left', left_on=on, right_on=sub_on, suffixes=('', '_y'), indicator=True)
         res = res.query('_merge != "both"')
         rem_cols.append("_merge")
     if len(rem_cols)>0:
-        res.drop(rem_cols, 1, inplace=True)
+        res.drop(columns=rem_cols, inplace=True)
     return res
 
 def map_columns(df, df2, columns, on, on2=None):
@@ -117,8 +116,11 @@ def merge_dataframes(df, df2, on, on2=None, columns_from_df2=None):
     for on2_el in on2:
         if on2_el not in columns_from_df2:
             columns_from_df2.append(on2_el)
-    merged_df = pd.merge(df, df2[columns_from_df2], left_on=on, right_on=on2, how='left', suffixes=(None, '_df2'))
+    df2 = df2[columns_from_df2]
+    df2 = df2.drop_duplicates(subset=on2) # otherwise len(merged_df.index) != len(df.index)
+    merged_df = pd.merge(df, df2, left_on=on, right_on=on2, how='left', suffixes=(None, '_df2'))
     cols_to_drop = [f"{col}_df2" for col in on2 if col not in on]
+    cols_to_drop = [col for col in cols_to_drop if col in merged_df.columns.tolist()]
     if len(cols_to_drop)>0:
         merged_df.drop(columns=cols_to_drop, inplace=True)
     merged_df.index = df.index
@@ -149,6 +151,7 @@ def set_selection_edges(dfSelection, left=True):
     dfSelection.loc[leftEdges.index, colName] = True
 
 def group_plot(groupedData, plotFun, xlabel=None, ylabel=None, ncols=4, figsize=(12, 4)):
+    import matplotlib.pyplot as plt
     """Short summary.
 
     Parameters

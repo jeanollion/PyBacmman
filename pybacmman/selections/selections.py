@@ -4,7 +4,7 @@ from py4j.protocol import Py4JNetworkError
 import json
 import os
 
-def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPath:str=None, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=None, python_proxy_port:int=None, address:str=None, gateway_parameters={}, **kwargs):
+def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, indexCol:str= "Indices", positionCol:str= "Position", dsPath:str=None, showObjects:bool=False, showTracks:bool=False, openSelection:bool=False, objectClassIdxDisplay:int=-1, interactiveObjectClassIdx:int=-1, port:int=None, python_proxy_port:int=None, address:str=None, verbose=False, **gateway_parameters):
     """Stores a selection to bacmman using python gateway (py4j). Bacmman must be running with an active python gateway server.
 
     Parameters
@@ -45,20 +45,22 @@ def store_selection(df, dsName:str, objectClassIdx:int, selectionName:str, dsPat
         dsPath_host = dsPath.replace(container_dir, wd)
     else:
         dsPath_host = dsPath
+    if verbose:
+        print(f"store_selection: name={selectionName} size={df.shape[0]} dataset={dsName}, oc={objectClassIdx} path={dsPath_host} (local path: {dsPath} container dir: {container_dir} working dir: {wd} ) gateway address={address} port: {port} proxy port: {python_proxy_port}" , flush=True)
     gateway = JavaGateway(python_proxy_port=python_proxy_port, gateway_parameters=GatewayParameters(address=address, port=port, **gateway_parameters))
     try:
-        idx = ListConverter().convert(df.Indices.tolist(), gateway._gateway_client)
-        pos = ListConverter().convert(df.Position.tolist(), gateway._gateway_client)
+        idx = ListConverter().convert(df[indexCol].tolist(), gateway._gateway_client)
+        pos = ListConverter().convert(df[positionCol].tolist(), gateway._gateway_client)
         gateway.saveCurrentSelection(dsName, dsPath_host, objectClassIdx, selectionName, idx, pos, showObjects, showTracks, openSelection, False, objectClassIdxDisplay, interactiveObjectClassIdx)
     except Py4JNetworkError as err:
         print("Could not connect, is BACMMAN started? Check that Python Gateway parameters match (BACMMAN menu MISC>Python Gateway)")
         print(err)
         if dsPath is None:
-            print("provide path to dataset as dsPath in kwargs to save selection as a file")
+            print("path to dataset dsPath must be provided to save selection as a file")
             print(err)
         else:  # try to fallback to saveSelectionFile method if dsPath is provided
             print(f"Could not connect through python gateway, saving selection as a file to {dsPath}")
-            store_selection_file(df, dsPath=dsPath, objectClassIdx=objectClassIdx, selectionName=selectionName, **kwargs)
+            store_selection_file(df, dsPath=dsPath, objectClassIdx=objectClassIdx, selectionName=selectionName, indexCol=indexCol, positionCol=positionCol)
 
 def store_selection_file(df, dsPath:str, objectClassIdx:int, selectionName:str, indexCol:str= "Indices", positionCol:str= "Position"):
     data = {
