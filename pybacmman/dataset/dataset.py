@@ -23,7 +23,7 @@ class Dataset():
 
     Attributes
     ----------
-    config_name : str
+    name : str
         dataset name
     object_class_names : list of str
         names of the object classes of the dataset. By default names are found in the configuration file, but can be renamed using the set_object_class_name method
@@ -33,19 +33,18 @@ class Dataset():
         path to the folder containing the configuration file
     data_path : str
         (optional) path to the folder containing the data files. if None, path is used. If data_path is not absolute it is considered as relative to path
-    filter: callable or str
-        filter on dataset name. if str: test if filter is contained in dataset name
 
     """
-    def __init__(self, path:str, data_path:str = None, filter=None, name:str=None, raise_error:bool=True):
+    def __init__(self, path:str, data_path:str = None, name:str=None, raise_error:bool=True):
         self.path = os.path.abspath(path)
+        self.name = os.path.basename(self.path)
+        self.legacy_name = None
         if data_path is not None:
             self.data_path = data_path if isabs(data_path) else join(path, data_path)
         else:
             self.data_path = path
-        self.config_name = get_dataset_name(path, filter)
-        if self.config_name is not None: # inspect config file
-            cf = join(path, self.config_name+"_config.json")
+        cf = self._get_config_file()
+        if cf is not None: # inspect config file
             with open(cf, errors='ignore') as f:
                 try:
                     conf = json.load(f)
@@ -69,9 +68,26 @@ class Dataset():
             self.parent_oc = None
             if raise_error:
                 raise IOError(f"Invalid dataset directory : {path}")
-        self.name = self.config_name if name is None else name
+        self.name = self.name if name is None else name
         self.data = {}
         self.selections = None
+
+    def _get_config_file(self):
+        cf = os.path.join(self.path, "config.json")
+        if os.path.isfile(cf):
+            return cf
+        else: # legacy
+            cf = os.path.join(self.path, self.name + "_config.json")
+            if os.path.isfile(cf):
+                return cf
+            else: # dataset name may differ from folder name
+                for f in listdir(self.path):
+                    if f.endswith("_config.json"):
+                        cf = os.path.join(self.path, f)
+                        if os.path.isfile(cf):
+                            self.legacy_name = f[:-12]
+                            return cf
+                return None
 
     def set_object_class_name(self, old_name, new_name:str):
         """Modifies the name of an object class.
@@ -114,7 +130,11 @@ class Dataset():
         return ptr
 
     def _get_data_file_path(self, object_class):
-        return join(self.data_path, f"{self.config_name}_{self._get_object_class_index(object_class)}.csv")
+        path = join(self.data_path, f"{self.name}_{self._get_object_class_index(object_class)}.csv")
+        if self.legacy_name is not None and not os.path.isfile(path):
+            return join(self.data_path, f"{self.legacy_name}_{self._get_object_class_index(object_class)}.csv")
+        else:
+            return path
 
     def _open_data(self, object_class, add_dataset_name_column=False, **kwargs):
         default_dtype = {'Position': str, 'PositionIdx':np.int16, 'Frame':np.int16, "Idx":np.int16,
@@ -201,7 +221,11 @@ class Dataset():
             return data.copy() if copy else data
 
     def _get_selections_file_path(self):
-        return join(self.data_path, f"{self.config_name}_Selections.csv")
+        path = join(self.data_path, f"{self.name}_Selections.csv")
+        if self.legacy_name is not None and not os.path.isfile(path):
+            return join(self.data_path, f"{self.legacy_name}_Selections.csv")
+        else:
+            return path
 
     def _open_selections(self, add_dataset_name_column=False, **kwargs):
         default_dtype = {'Position': 'str', 'PositionIdx':np.int16, 'ObjectClassIdx':np.int16, 'Indices':'str', 'Frame':np.int16, 'SelectionName':'str'}
@@ -295,7 +319,7 @@ class Dataset():
 
         """
         object_class_idx = self._get_object_class_index(object_class)
-        store_selection(selection, self.config_name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
+        store_selection(selection, self.name, objectClassIdx=object_class_idx, selectionName=name, dsPath=self.path, **kwargs)
 
     def __getitem__(self, item):
         return self.get_data(item)
@@ -313,15 +337,17 @@ class DatasetList(Dataset):
         if dataset_list is not None:
             self.datasets = {d.name:d for d in dataset_list}
         else: # path is not None:
+            if filter is None:
+                filter = lambda name: True
             if config_path is not None:
                 assert data_path is None, "data_path is not taken into account when config_path is provided"
-                dataset_list = [Dataset(path=config_path, data_path=join(path, f), filter=filter, name = f, raise_error=False) for f
-                                in listdir(path) if isdir(join(path, f))]
+                dataset_list = [Dataset(path=config_path, data_path=join(path, f), name = f, raise_error=False) for f
+                                in listdir(path) if isdir(join(path, f)) and filter(f)]
                 self.datasets = {d.name: d for d in dataset_list if d.name is not None}
             else:
                 if data_path is not None:
                     assert not isabs(data_path), "data_path must be relative"
-                dataset_list = [Dataset(path=join(path, f), data_path=data_path, filter=filter, raise_error=False) for f in listdir(path) if isdir(join(path, f))]
+                dataset_list = [Dataset(path=join(path, f), data_path=data_path, raise_error=False) for f in listdir(path) if isdir(join(path, f)) and filter(f)]
                 self.datasets = {d.name:d for d in dataset_list if d.name is not None}
             if object_class_name_mapping is not None:
                 for d in self.datasets.values():
