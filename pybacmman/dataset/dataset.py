@@ -5,6 +5,8 @@ import json
 import pandas as pd
 from numpy import ndarray
 import numpy as np
+from pandas.core.interchange.dataframe_protocol import DataFrame
+
 from ..selections import store_selection
 from ..pandas import subset_by_dataframe, get_parent
 import warnings
@@ -157,18 +159,22 @@ class Dataset():
             data["DatasetName"] = self.name
         return data
 
-    def get_data(self, object_class, selection=None, copy:bool=True, cache:bool=True, **kwargs):
+    def get_data(self, object_class, selection_filter=None, selection_to_append=None, copy:bool=True, cache:bool=True, columns=None, **kwargs):
         """Open measurement table of an object class as pandas dataframe.
            the file is supposed to be located in the dataset path.
            Note that when calling this method, the dataframe is stored in the dataset object. call _open_data to open the dataframe without storing it.
 
         Parameters
         ----------
+        columns : keep only those columns in the resulting dataframe
         object_class : str or int
             either name or index of the object class
-        selection: str or dataframe
+        selection_filter: str (or list of str) or dataframe
             str : name of a selection contained in this dataset
             dataframe : dataframe that contains columns
+            filter rows by the named selection
+        selection_to_append: str or list of str
+            append a bool colum that tells whether the object belongs to the selection or not.
         copy: bool
             only used if selection is None. returned a copy of the dataframe to avoid modifying the cached one
         cache: bool
@@ -187,8 +193,10 @@ class Dataset():
                 self.data[object_class_name] = data
         else:
             data = self.data[object_class_name]
-        if selection is not None:
-            selections = self.get_selections(name=selection)
+        if columns is not None:
+            data = data.filter(columns, axis=1)
+        if selection_filter is not None:
+            selections = self.get_selections(name=selection_filter)
             if selections.shape[0] > 0:
                 ocList = list(selections.ObjectClassIdx.unique())
                 # only accept object class idx or parents
@@ -214,11 +222,13 @@ class Dataset():
                             #print(f"sel by position: {oc}={sel.shape[0]} -> {data.shape[0]}")
                 if "ParentIndices" in data.columns:
                     data.drop(columns="ParentIndices", inplace=True)
-                return data
             else: # return void
-                return subset_by_dataframe(data, selection, on=["Position", "Indices"])
+                return subset_by_dataframe(data, selections, on=["Position", "Indices"])
         else:
-            return data.copy() if copy else data
+            data = data.copy() if copy else data
+        if selection_to_append is not None:
+            data = self.append_selections_to_data(data, object_class=object_class, selections=selection_to_append)
+        return data
 
     def _get_selections_file_path(self):
         path = join(self.data_path, f"{self.name}_Selections.csv")
@@ -245,43 +255,67 @@ class Dataset():
             data["DatasetName"] = self.name
         return data
 
-    def append_selections_to_data(self, selections=None):
+    def append_selections_to_data(self, data:pd.DataFrame, object_class:int, selections):
         """For each selection, adds a boolean column to the dataFrame with the name of the selection, with True where the object defined by (Position, Indices) is included in the selection.
-
+        data is modified in-place.
         Parameters
         ----------
+        object_class : str or int
+            object class of the specified data DataFrame (str or int)
+        data: DataFrame
+            data to append selection to
         selections : list / tuple / ndarray of str, or str
             Selection names to add. If None, all selections will be added
 
-        Returns None
+        Returns the data with append selection as columns for convenience
 
         """
-        all_selections = self.get_selections()
-        if all_selections is None:
-            warnings.warn(f"No selections found in dataset: {self.name}")
-            return
-        if selections is None:
-            selections = all_selections["SelectionName"].unique()
-            print(type(selections))
-        if isinstance(selections, str):
-            selections = [selections]
-        if not isinstance(selections, (tuple, list, ndarray)):
-            raise ValueError("selections should be a str, tuple or list of str, or ndarray")
-        for sel_name in selections:
-            sel = all_selections[all_selections["SelectionName"] == sel_name]
-            if sel.shape[0] == 0:
-                warnings.warn(f"Selection: {sel_name} not found in exported selections")
-                continue
-            oc_idx = sel["ObjectClassIdx"].iloc[0]
-            data = self.get_data(oc_idx)
-            if data is None:
-                warnings.warn(f"No data found for object class: {oc_idx}, skipping selection: {sel_name}")
-            else:
-                merge = data.filter(["Position", "Indices"], axis=1)
-                merge['copy_index'] = data.index
-                merge = merge.merge(sel[["Position", "Indices"]], how="inner", copy=False)["copy_index"]
-                data[sel_name] = False
-                data.loc[merge, sel_name] = True
+        object_class_idx = self._get_object_class_index(object_class)
+        selections = self.get_selections(name=selections)
+        if selections.shape[0] > 0:
+            oc_list = list(selections.ObjectClassIdx.unique())
+            # only accept object class idx or parents
+            ptr = self._get_path_to_root(object_class)
+            oc_list = [oc for oc in ptr if oc in oc_list]
+            for oc in ptr:
+                if oc == object_class_idx:
+                    if oc in oc_list:  # same object class. simply merge
+                        sel = selections[selections.ObjectClassIdx == object_class_idx].drop_duplicates(["Position", "Indices"])
+                        #data = subset_by_dataframe(data, sel, on=["Position", "Indices"])
+                        for sel_name in sel.SelectionName.unique():
+                            current_sel = sel[sel.SelectionName == sel_name]
+                            merge = data.filter(["Position", "Indices"], axis=1)
+                            merge['copy_index'] = data.index
+                            merge = merge.merge(current_sel[["Position", "Indices"]], how="inner", copy=False)["copy_index"]
+                            data[sel_name] = False
+                            data.loc[merge, sel_name] = True
+                elif oc >= 0:  # parent -> compute parent indices
+                    source_col = "Indices" if oc == self.parent_oc[object_class_idx] else "ParentIndices"
+                    data["ParentIndices"] = data[source_col].apply(get_parent)
+                    if oc in oc_list:  # filter
+                        sel = selections[selections.ObjectClassIdx == oc].drop_duplicates(["Position", "Indices"])
+                        #data = subset_by_dataframe(data, sel, on=["Position", "ParentIndices"],  sub_on=["Position", "Indices"])
+                        for sel_name in sel.SelectionName.unique():
+                            current_sel = sel[sel.SelectionName == sel_name]
+                            merge = data.filter(["Position", "ParentIndices"], axis=1)
+                            merge['copy_index'] = data.index
+                            merge = merge.merge(current_sel[["Position", "Indices"]], left_on=["Position", "ParentIndices"], right_on=["Position", "Indices"], how="inner", copy=False)["copy_index"]
+                            data[sel_name] = False
+                            data.loc[merge, sel_name] = True
+                else:  # viewfield
+                    if -1 in oc_list:  # filter
+                        sel = selections[selections.ObjectClassIdx == -1]
+                        #data = subset_by_dataframe(data, sel, on=["Position"])
+                        for sel_name in sel.SelectionName.unique():
+                            current_sel = sel[sel.SelectionName == sel_name]
+                            merge = data.filter(["Position"], axis=1)
+                            merge['copy_index'] = data.index
+                            merge = merge.merge(current_sel[["Position"]], how="inner", copy=False)["copy_index"]
+                            data[sel_name] = False
+                            data.loc[merge, sel_name] = True
+            if "ParentIndices" in data.columns:
+                data.drop(columns="ParentIndices", inplace=True)
+            return data
 
     def get_selections(self, name=None, add_dataset_name_column=False, **kwargs):
         if self.selections is None:
@@ -292,7 +326,7 @@ class Dataset():
             if isinstance(name, str):
                 selection = self.selections[self.selections.SelectionName == name]
                 if selection.shape[0] == 0:
-                    warnings.warn(f"Selection {name} not found")
+                    warnings.warn(f"Selection {name} not found for dataset: {self.name}")
             elif isinstance(name, (list, tuple, set, pd.Series, np.ndarray)):
                 selection = self.selections[self.selections.SelectionName.isin(name)]
                 found = set(self.selections.SelectionName.unique()).intersection(name)
@@ -379,9 +413,9 @@ class DatasetList(Dataset):
         for d in self.datasets.values():
             d.set_object_class_name(old_object_class_name, new_object_class_name)
 
-    def get_data(self, object_class, selection=None, **kwargs):
+    def get_data(self, object_class, selection_filter=None, selection_to_append=None, **kwargs):
         object_class = self._get_object_class_name(object_class)
-        return pd.concat([d.get_data(object_class, add_dataset_name_column=True, selection=selection, copy=False, **kwargs) for d in self.datasets.values()]) # do not cache both in each dataset and datasetList
+        return pd.concat([d.get_data(object_class, add_dataset_name_column=True, selection_filter=selection_filter, selection_to_append=selection_to_append, copy=False, **kwargs) for d in self.datasets.values()]) # do not cache both in each dataset and datasetList
 
     def get_selections(self, name=None, **kwargs):
         selection_list = [d.get_selections(name=name, add_dataset_name_column=True, **kwargs) for d in self.datasets.values()]
