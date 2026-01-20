@@ -193,6 +193,8 @@ class Dataset():
                 self.data[object_class_name] = data
         else:
             data = self.data[object_class_name]
+            if kwargs.get("add_dataset_name_column", False) and "DatasetName" not in data.columns:
+                data["DatasetName"] = self.name
         if columns is not None:
             data = data.filter(columns, axis=1)
         if selection_filter is not None:

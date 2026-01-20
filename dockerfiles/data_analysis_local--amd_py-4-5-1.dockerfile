@@ -1,4 +1,4 @@
-FROM quay.io/jupyter/scipy-notebook:lab-4.4.9
+FROM quay.io/jupyter/scipy-notebook:lab-4.5.1
 RUN pip install py4j
 
 COPY PyBacmman /home/jovyan/work/PyBacmman
