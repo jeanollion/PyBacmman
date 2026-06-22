@@ -369,8 +369,8 @@ class DatasetList(Dataset):
             path = os.path.abspath(path)
         if config_path is not None:
             config_path = os.path.abspath(config_path)
-        assert dataset_list is not None or path is not None, "either provide dataset_list or path"
-        if dataset_list is not None:
+        assert dataset_list is not None and len(dataset_list)>0 or path is not None, "either provide dataset_list or path"
+        if dataset_list is not None and len(dataset_list)>0:
             self.datasets = {d.name:d for d in dataset_list}
         else: # path is not None:
             if filter is None:
@@ -391,7 +391,7 @@ class DatasetList(Dataset):
                         if n in object_class_name_mapping and object_class_name_mapping[n] not in d.object_class_names:
                             d.object_class_names[i] = object_class_name_mapping[n]
 
-        assert len(self.datasets)>1, "no datasets where found"
+            assert len(self.datasets)>=1, f"no datasets where found in {path}"
         # object_class names are the common object_class names between all object_class names
         self.object_class_names = None
         for d in self.datasets.values():
